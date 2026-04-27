@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZenTrack — Student Wellness Prototype</title>
+  <meta name="description" content="ZenTrack hackathon prototype: stress check-in, tiered wellness activities, ZenPoints rewards, and insights." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['Fraunces', 'serif'],
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            zen:        '#E7F0E8',
+            zenfg:      '#1F3A2A',
+            leaf:       '#3F7A5A',
+            leafdark:   '#2C5A41',
+            sand:       '#F5EFE6',
+            cream:      '#FBF8F3',
+            ink:        '#1B2420',
+            mist:       '#D6E2DA',
+            coral:      '#E08A6F',
+            sun:        '#E9B949',
+          },
+          boxShadow: {
+            soft: '0 6px 24px -12px rgba(31,58,42,0.18)',
+            glow: '0 12px 40px -12px rgba(63,122,90,0.35)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html, body { background: #FBF8F3; color: #1B2420; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+    .font-display { font-family: 'Fraunces', serif; letter-spacing: -0.01em; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .nav-link.active { background: #E7F0E8; color: #1F3A2A; }
+    .gauge-needle { transform-origin: 100px 100px; transition: transform 800ms cubic-bezier(.2,.8,.2,1); }
+    .fade-in { animation: fade .35s ease-out; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- =================== HEADER =================== -->
+<header class="sticky top-0 z-30 border-b border-mist/70 bg-cream/80 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <div class="flex items-center gap-2">
+      <div class="grid h-9 w-9 place-items-center rounded-2xl bg-leaf text-cream shadow-soft">
+        <span class="font-display text-lg">Z</span>
+      </div>
+      <div>
+        <div class="font-display text-xl leading-none">ZenTrack</div>
+        <div class="text-[11px] uppercase tracking-widest text-leafdark/70">Student wellness</div>
+      </div>
+    </div>
+    <nav class="hidden items-center gap-1 md:flex">
+      <button data-nav="dashboard"  class="nav-link rounded-full px-4 py-1.5 text-sm font-medium hover:bg-zen/60">Dashboard</button>
+      <button data-nav="assessment" class="nav-link rounded-full px-4 py-1.5 text-sm font-medium hover:bg-zen/60">Check-in</button>
+      <button data-nav="activities" class="nav-link rounded-full px-4 py-1.5 text-sm font-medium hover:bg-zen/60">Activities</button>
+      <button data-nav="rewards"    class="nav-link rounded-full px-4 py-1.5 text-sm font-medium hover:bg-zen/60">Rewards</button>
+      <button data-nav="insights"   class="nav-link rounded-full px-4 py-1.5 text-sm font-medium hover:bg-zen/60">Insights</button>
+    </nav>
+    <div class="flex items-center gap-2">
+      <div class="rounded-full bg-zen px-3 py-1.5 text-sm font-semibold text-zenfg shadow-soft">
+        ✦ <span id="hdr-points">0</span>
+      </div>
+      <div class="hidden rounded-full bg-sand px-3 py-1.5 text-sm font-semibold text-leafdark sm:block">
+        🔥 <span id="hdr-streak">0</span>d
+      </div>
+    </div>
+  </div>
+  <!-- mobile nav -->
+  <div class="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4 pb-3 md:hidden">
+    <button data-nav="dashboard"  class="nav-link shrink-0 rounded-full px-3 py-1.5 text-xs font-medium">Dashboard</button>
+    <button data-nav="assessment" class="nav-link shrink-0 rounded-full px-3 py-1.5 text-xs font-medium">Check-in</button>
+    <button data-nav="activities" class="nav-link shrink-0 rounded-full px-3 py-1.5 text-xs font-medium">Activities</button>
+    <button data-nav="rewards"    class="nav-link shrink-0 rounded-full px-3 py-1.5 text-xs font-medium">Rewards</button>
+    <button data-nav="insights"   class="nav-link shrink-0 rounded-full px-3 py-1.5 text-xs font-medium">Insights</button>
+  </div>
+</header>
+
+<main class="mx-auto max-w-6xl px-6 py-10">
+
+  <!-- =================== DASHBOARD =================== -->
+  <section id="page-dashboard" class="page active">
+    <div class="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
+      <div class="rounded-3xl border border-mist/70 bg-white p-8 shadow-soft">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="text-xs uppercase tracking-widest text-leafdark/70">Welcome back</p>
+            <h1 class="font-display text-4xl">Hi, <span id="dash-name">(Name)</span> 👋</h1>
+            <p id="dash-sub" class="mt-2 max-w-md text-sm text-ink/70">Take your first stress check-in to unlock personalized activities.</p>
+          </div>
+          <div id="dash-tier-badge"></div>
+        </div>
+
+        <div class="mt-6 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
+          <!-- Gauge -->
+          <div class="relative">
+            <svg viewBox="0 0 200 130" class="w-56">
+              <defs>
+                <linearGradient id="gaugeGrad" x1="0" x2="1">
+                  <stop offset="0%"  stop-color="#3F7A5A"/>
+                  <stop offset="50%" stop-color="#E9B949"/>
+                  <stop offset="100%" stop-color="#E08A6F"/>
+                </linearGradient>
+              </defs>
+              <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="#E7F0E8" stroke-width="16" stroke-linecap="round"/>
+              <path d="M20 110 A80 80 0 0 1 180 110" fill="none" stroke="url(#gaugeGrad)" stroke-width="16" stroke-linecap="round" stroke-dasharray="251" id="gauge-arc" stroke-dashoffset="251"/>
+              <line id="gauge-needle" class="gauge-needle" x1="100" y1="110" x2="100" y2="40" stroke="#1B2420" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="100" cy="110" r="6" fill="#1B2420"/>
+            </svg>
+            <div class="text-center">
+              <div class="font-display text-3xl"><span id="gauge-pct">0</span>%</div>
+              <div class="text-xs uppercase tracking-widest text-ink/60">Current stress</div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="text-xs uppercase tracking-widest text-leafdark/70">Tier focus</div>
+              <div class="font-display text-2xl" id="dash-tagline">Calm and steady</div>
+              <p class="mt-1 text-sm text-ink/70" id="dash-goal">Maintain your balance with light reflection and joy practices.</p>
+            </div>
+            <button onclick="go('assessment')" class="inline-flex items-center justify-center rounded-full bg-leaf px-5 py-2.5 text-sm font-semibold text-cream shadow-soft transition hover:bg-leafdark">
+              Take today's check-in →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div class="rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+          <div class="flex items-center justify-between">
+            <div class="text-xs uppercase tracking-widest text-leafdark/70">Check-ins</div><span>📈</span>
+          </div>
+          <div class="mt-2 font-display text-4xl" id="stat-checkins">0</div>
+          <div class="text-xs text-ink/60">this term</div>
+        </div>
+        <div class="rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+          <div class="flex items-center justify-between">
+            <div class="text-xs uppercase tracking-widest text-leafdark/70">Activities done</div><span>✅</span>
+          </div>
+          <div class="mt-2 font-display text-4xl" id="stat-acts">0</div>
+          <div class="text-xs text-ink/60">lifetime</div>
+        </div>
+        <div class="rounded-3xl border border-mist/70 bg-gradient-to-br from-zen to-sand p-6 shadow-soft">
+          <div class="text-xs uppercase tracking-widest text-leafdark/70">Mentor alert</div>
+          <p class="mt-2 text-sm" id="mentor-alert">✓ All clear — no escalation needed.</p>
+        </div>
+      </div>
+    </div>
+
+    <section class="mt-10">
+      <div class="mb-4 flex items-end justify-between">
+        <div>
+          <h2 class="font-display text-2xl">Recommended for today</h2>
+          <p class="text-sm text-ink/70">Curated for your current tier — 5–20 min each.</p>
+        </div>
+        <button onclick="go('activities')" class="text-sm font-medium text-leafdark hover:underline">See all →</button>
+      </div>
+      <div id="recommended" class="grid gap-4 sm:grid-cols-3"></div>
+    </section>
+  </section>
+
+  <!-- =================== ASSESSMENT =================== -->
+  <section id="page-assessment" class="page">
+    <div class="mx-auto max-w-2xl">
+      <div class="mb-6">
+        <div class="flex items-center justify-between text-xs text-ink/60">
+          <span>Question <span id="q-step">1</span> of <span id="q-total">5</span></span>
+          <span><span id="q-progress">0</span>%</span>
+        </div>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-zen">
+          <div id="q-bar" class="h-full rounded-full bg-leaf transition-all duration-500" style="width:0%"></div>
+        </div>
+      </div>
+      <div id="quiz-card" class="rounded-3xl border border-mist/70 bg-white p-8 shadow-soft fade-in">
+        <p class="text-xs uppercase tracking-widest text-leafdark/70">Stress check-in</p>
+        <h1 id="q-text" class="mt-2 font-display text-3xl leading-tight"></h1>
+        <div id="q-options" class="mt-6 grid gap-3"></div>
+        <div class="mt-6 flex justify-between">
+          <button id="q-back" class="text-sm text-ink/60 hover:text-ink disabled:opacity-30">← Back</button>
+          <span class="text-xs text-ink/60">Tap an option to continue</span>
+        </div>
+      </div>
+
+      <div id="quiz-result" class="hidden rounded-3xl border border-mist/70 bg-white p-10 text-center shadow-soft">
+        <div class="text-xs uppercase tracking-widest text-leafdark/70">Assessment complete</div>
+        <h1 class="mt-2 font-display text-5xl" id="res-pct">0%</h1>
+        <div class="mt-3 flex justify-center" id="res-badge"></div>
+        <p class="mx-auto mt-4 max-w-md text-sm text-ink/70" id="res-goal"></p>
+        <p class="mt-2 text-sm text-leafdark font-semibold">+20 ZenPoints earned for checking in today ✦</p>
+        <div class="mt-6 flex justify-center gap-3">
+          <button onclick="go('activities')" class="rounded-full bg-leaf px-5 py-2.5 text-sm font-semibold text-cream hover:bg-leafdark">Start recommended activities →</button>
+          <button onclick="go('dashboard')" class="rounded-full border border-mist bg-white px-5 py-2.5 text-sm font-semibold hover:bg-zen/40">Back to dashboard</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== ACTIVITIES =================== -->
+  <section id="page-activities" class="page">
+    <header class="mb-6 flex items-end justify-between">
+      <div>
+        <h1 class="font-display text-3xl">Wellness Activities</h1>
+        <p class="text-sm text-ink/70">Complete activities to earn ZenPoints. Curated by your current tier.</p>
+      </div>
+      <div id="act-tier-badge"></div>
+    </header>
+    <div id="act-tabs" class="mb-4 flex gap-2 overflow-x-auto"></div>
+    <div id="act-grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </section>
+
+  <!-- =================== REWARDS =================== -->
+  <section id="page-rewards" class="page">
+    <header class="mb-6 flex items-end justify-between">
+      <div>
+        <h1 class="font-display text-3xl">ZenPoints Rewards</h1>
+        <p class="text-sm text-ink/70">Spend points on perks that keep you coming back.</p>
+      </div>
+      <div class="rounded-full bg-zen px-4 py-2 text-sm font-semibold text-zenfg shadow-soft">
+        ✦ <span id="rw-points">0</span> available
+      </div>
+    </header>
+    <div id="rw-grid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </section>
+
+  <!-- =================== INSIGHTS =================== -->
+  <section id="page-insights" class="page">
+    <header class="mb-6 flex items-end justify-between">
+      <div>
+        <h1 class="font-display text-3xl">Your Wellness Insights</h1>
+        <p class="text-sm text-ink/70">Track stress trend, habits, and milestones.</p>
+      </div>
+      <button onclick="resetDemo()" class="rounded-full border border-mist bg-white px-4 py-1.5 text-xs hover:bg-zen/40">Reset demo</button>
+    </header>
+    <div class="grid gap-6 lg:grid-cols-3">
+      <div class="lg:col-span-2 rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="font-display text-xl">Stress trend</h2>
+          <span class="text-xs text-ink/60">Average: <b id="ins-avg">0%</b></span>
+        </div>
+        <div id="trend-wrap"></div>
+      </div>
+      <div class="space-y-4">
+        <div class="rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+          <div class="text-xs uppercase tracking-widest text-leafdark/70">Total ZenPoints</div>
+          <div class="mt-2 font-display text-4xl"><span id="ins-points">0</span> ✦</div>
+        </div>
+        <div class="rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+          <div class="text-xs uppercase tracking-widest text-leafdark/70">Activities completed</div>
+          <div class="mt-2 font-display text-4xl" id="ins-acts">0</div>
+        </div>
+        <div class="rounded-3xl border border-mist/70 bg-white p-6 shadow-soft">
+          <div class="text-xs uppercase tracking-widest text-leafdark/70">Current streak</div>
+          <div class="mt-2 font-display text-4xl">🔥 <span id="ins-streak">0</span></div>
+        </div>
+      </div>
+    </div>
+    <section class="mt-8">
+      <h2 class="mb-3 font-display text-xl">Check-in history</h2>
+      <div class="overflow-hidden rounded-2xl border border-mist/70 bg-white shadow-soft">
+        <table class="w-full text-sm">
+          <thead class="bg-zen/60 text-left text-xs uppercase tracking-wider text-leafdark/80">
+            <tr><th class="px-5 py-3">Date</th><th class="px-5 py-3">Stress %</th><th class="px-5 py-3">Tier</th></tr>
+          </thead>
+          <tbody id="ins-tbody"></tbody>
+        </table>
+      </div>
+      <p class="mt-3 text-xs text-ink/60">Mentor escalation auto-triggers at Tier 5 (81–100%).</p>
+    </section>
+  </section>
+</main>
+
+<footer class="border-t border-mist/60 py-8 text-center text-xs text-ink/50">
+  ZenTrack Hackathon Prototype · Single-file demo · Data stored locally on this device
+</footer>
+
+<!-- Toast -->
+<div id="toast" class="pointer-events-none fixed bottom-8 left-1/2 -translate-x-1/2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-cream shadow-glow opacity-0 transition-opacity"></div>
+
+<script>
+/* =================== DATA =================== */
+const TIERS = {
+  1: { range:'0–20%',  tagline:'Calm and steady',     goal:'Maintain balance with light reflection and joy practices.', color:'#3F7A5A', bg:'#E7F0E8' },
+  2: { range:'21–40%', tagline:'Mostly relaxed',      goal:'Sustain habits with light movement and gratitude.',         color:'#5A8F6E', bg:'#DCEBD9' },
+  3: { range:'41–60%', tagline:'Mild stress',         goal:'Re-center with breathwork and short focus rituals.',        color:'#E9B949', bg:'#FBEFCB' },
+  4: { range:'61–80%', tagline:'Elevated stress',     goal:'Slow down with grounding and supportive routines.',         color:'#E08A6F', bg:'#FADAD0' },
+  5: { range:'81–100%',tagline:'High stress · alert', goal:'Reach out to mentor and use guided calming sessions.',      color:'#C25840', bg:'#F8C9BD' },
+};
+const QUESTIONS = [
+  { id:1, text:'How well did you sleep last night?',          options:[['Great',1],['Okay',2],['Restless',3],['Barely slept',4]] },
+  { id:2, text:'How focused did you feel in classes today?',  options:[['Very focused',1],['Mostly',2],['Distracted',3],['Couldn\'t focus',4]] },
+  { id:3, text:'How is your workload feeling right now?',     options:[['Light',1],['Manageable',2],['Heavy',3],['Overwhelming',4]] },
+  { id:4, text:'How connected do you feel to friends/family?',options:[['Very connected',1],['Connected',2],['A bit lonely',3],['Isolated',4]] },
+  { id:5, text:'How is your mood overall today?',             options:[['Bright',1],['Steady',2],['Low',3],['Very low',4]] },
+];
+const ACTIVITIES = {
+  1:[ {id:'a1',title:'Gratitude journal',description:'Write 3 things you\'re grateful for.', duration:5, points:10, emoji:'📓'},
+      {id:'a2',title:'Sunlight walk',     description:'Step outside for fresh air.',         duration:10,points:15, emoji:'🌿'},
+      {id:'a3',title:'Joyful playlist',   description:'Play a song that lifts you.',         duration:5, points:10, emoji:'🎵'} ],
+  2:[ {id:'a4',title:'Box breathing',     description:'Inhale 4, hold 4, exhale 4, hold 4.', duration:5, points:10, emoji:'🌬️'},
+      {id:'a5',title:'Light stretch',     description:'Stretch neck, shoulders, back.',      duration:8, points:15, emoji:'🧘'},
+      {id:'a6',title:'Doodle break',      description:'Free-draw for a few minutes.',        duration:10,points:15, emoji:'🎨'} ],
+  3:[ {id:'a7',title:'5-min meditation',  description:'Guided focus on the breath.',         duration:5, points:15, emoji:'🧠'},
+      {id:'a8',title:'Pomodoro reset',    description:'25-min focus + 5-min reset.',         duration:30,points:25, emoji:'⏱️'},
+      {id:'a9',title:'Tea ritual',        description:'Make tea, sip slowly, no screens.',   duration:10,points:15, emoji:'🍵'} ],
+  4:[ {id:'b1',title:'Body scan',         description:'Relax tension head to toe.',          duration:10,points:20, emoji:'💆'},
+      {id:'b2',title:'Talk it out',       description:'Voice note your feelings.',           duration:8, points:20, emoji:'🎙️'},
+      {id:'b3',title:'Grounding 5-4-3-2-1',description:'Name senses to come back.',          duration:5, points:15, emoji:'🌳'} ],
+  5:[ {id:'c1',title:'Reach a mentor',    description:'Open a private chat with mentor.',    duration:5, points:30, emoji:'🤝'},
+      {id:'c2',title:'Guided calm',       description:'10-min soothing audio session.',      duration:10,points:25, emoji:'🎧'},
+      {id:'c3',title:'Safe space note',   description:'Write what feels heavy right now.',   duration:10,points:25, emoji:'📝'} ],
+};
+const REWARDS = [
+  {id:'r1',name:'Cafeteria voucher', description:'Free smoothie at the canteen.',    cost:80,  emoji:'🥤'},
+  {id:'r2',name:'Library nap pass',  description:'30-min nap pod reservation.',      cost:120, emoji:'😴'},
+  {id:'r3',name:'No-homework pass',  description:'Skip one homework, no penalty.',   cost:200, emoji:'🎟️'},
+  {id:'r4',name:'Mentor coffee',     description:'1-on-1 coffee chat with mentor.',  cost:160, emoji:'☕'},
+  {id:'r5',name:'Custom avatar',     description:'Unlock a premium profile theme.',  cost:60,  emoji:'🎨'},
+  {id:'r6',name:'Wellness sticker',  description:'Collectible badge for streaks.',   cost:40,  emoji:'🏅'},
+];
+
+/* =================== STATE =================== */
+const KEY = 'zentrack:demo:v1';
+const initial = {
+  name:'Aarav', zenPoints:120, streak:3,
+  history:[{ id:'seed', date:new Date(Date.now()-2*864e5).toISOString(), percent:48, tier:3 }],
+  completed:[], redeemed:[],
+};
+let state = load();
+function load(){ try{ const r=localStorage.getItem(KEY); return r? {...initial, ...JSON.parse(r)} : initial; }catch{ return initial; } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch{} }
+function resetDemo(){ if(!confirm('Reset all demo data?')) return; state={...initial, history:[], completed:[], redeemed:[]}; save(); renderAll(); toast('Demo reset'); }
+
+/* =================== HELPERS =================== */
+function tierOf(p){ if(p<=20)return 1; if(p<=40)return 2; if(p<=60)return 3; if(p<=80)return 4; return 5; }
+function fmtDate(iso){ const d=new Date(iso); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+function tierBadge(t){
+  const i=TIERS[t];
+  return `<span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold" style="background:${i.bg};color:${i.color}">
+    <span class="h-2 w-2 rounded-full" style="background:${i.color}"></span>Tier ${t} · ${i.range}</span>`;
+}
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.style.opacity=1; setTimeout(()=>el.style.opacity=0,2000); }
+
+/* =================== NAV =================== */
+function go(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelectorAll('.nav-link').forEach(b=>b.classList.toggle('active', b.dataset.nav===id));
+  if(id==='assessment') startQuiz();
+  if(id==='activities') renderActivities();
+  if(id==='rewards') renderRewards();
+  if(id==='insights') renderInsights();
+  if(id==='dashboard') renderDashboard();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.nav)));
+
+/* =================== DASHBOARD =================== */
+function renderDashboard(){
+  document.getElementById('hdr-points').textContent = state.zenPoints;
+  document.getElementById('hdr-streak').textContent = state.streak;
+  document.getElementById('dash-name').textContent = state.name;
+  const latest = state.history[0];
+  const pct = latest? latest.percent : 0;
+  const tier = latest? latest.tier : 1;
+  const info = TIERS[tier];
+  document.getElementById('dash-sub').textContent = latest
+    ? `Your last check-in was ${fmtDate(latest.date)}. Here's how you're doing.`
+    : 'Take your first stress check-in to unlock personalized activities.';
+  document.getElementById('dash-tier-badge').innerHTML = latest? tierBadge(tier) : '';
+  document.getElementById('gauge-pct').textContent = pct;
+  document.getElementById('dash-tagline').textContent = info.tagline;
+  document.getElementById('dash-goal').textContent = info.goal;
+  // gauge animation
+  const arcLen = 251;
+  document.getElementById('gauge-arc').setAttribute('stroke-dashoffset', arcLen - (pct/100)*arcLen);
+  const angle = -90 + (pct/100)*180;
+  document.getElementById('gauge-needle').setAttribute('transform', `rotate(${angle} 100 110)`);
+
+  document.getElementById('stat-checkins').textContent = state.history.length;
+  document.getElementById('stat-acts').textContent = state.completed.length;
+  document.getElementById('mentor-alert').textContent =
+    tier>=5? '🚨 High-priority alert sent to your counsellor.' :
+    tier===4? '⚠️ Your mentor has been notified to check in.' :
+    '✓ All clear — no escalation needed.';
+
+  const recs = ACTIVITIES[tier].slice(0,3);
+  document.getElementById('recommended').innerHTML = recs.map(a=>`
+    <div class="rounded-2xl border border-mist/70 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-glow">
+      <div class="flex items-center justify-between text-xs text-ink/60">
+        <span>${a.duration} min</span><span class="font-semibold text-leafdark">+${a.points} ✦</span>
+      </div>
+      <div class="mt-2 text-2xl">${a.emoji}</div>
+      <h3 class="mt-1 font-display text-lg">${a.title}</h3>
+      <p class="mt-1 text-sm text-ink/70">${a.description}</p>
+    </div>`).join('');
+}
+
+/* =================== QUIZ =================== */
+let quiz = { step:0, answers:{} };
+function startQuiz(){ quiz={step:0,answers:{}}; document.getElementById('quiz-card').classList.remove('hidden'); document.getElementById('quiz-result').classList.add('hidden'); document.getElementById('q-total').textContent = QUESTIONS.length; renderQuiz(); }
+function renderQuiz(){
+  const q = QUESTIONS[quiz.step];
+  document.getElementById('q-step').textContent = quiz.step+1;
+  const prog = Math.round(((quiz.step) / QUESTIONS.length)*100);
+  document.getElementById('q-progress').textContent = prog;
+  document.getElementById('q-bar').style.width = prog+'%';
+  document.getElementById('q-text').textContent = q.text;
+  document.getElementById('q-options').innerHTML = q.options.map(([label,score])=>{
+    const sel = quiz.answers[q.id]===score;
+    return `<button onclick="pick(${score})" class="group flex items-center justify-between rounded-2xl border ${sel?'border-leaf bg-zen/40':'border-mist bg-white hover:border-leaf/50 hover:bg-zen/20'} px-5 py-4 text-left text-sm transition">
+      <span class="font-medium">${label}</span>
+      <span class="h-5 w-5 rounded-full border-2 ${sel?'border-leaf bg-leaf':'border-mist'}"></span>
+    </button>`;
+  }).join('');
+  const back = document.getElementById('q-back');
+  back.disabled = quiz.step===0;
+  back.onclick = ()=>{ if(quiz.step>0){ quiz.step--; renderQuiz(); } };
+}
+function pick(score){
+  const q = QUESTIONS[quiz.step]; quiz.answers[q.id]=score;
+  setTimeout(()=>{
+    if(quiz.step < QUESTIONS.length-1){ quiz.step++; renderQuiz(); }
+    else finishQuiz();
+  }, 220);
+}
+function finishQuiz(){
+  const scores = QUESTIONS.map(q=>quiz.answers[q.id]??1);
+  const max = QUESTIONS.length*4;
+  const percent = Math.round((scores.reduce((s,x)=>s+x,0)/max)*100);
+  const tier = tierOf(percent);
+  const rec = { id:'a-'+Date.now(), date:new Date().toISOString(), percent, tier };
+  state.history = [rec, ...state.history];
+  state.zenPoints += 20;
+  state.streak += 1;
+  save();
+  document.getElementById('res-pct').textContent = percent+'%';
+  document.getElementById('res-badge').innerHTML = tierBadge(tier);
+  document.getElementById('res-goal').textContent = TIERS[tier].goal;
+  document.getElementById('quiz-card').classList.add('hidden');
+  document.getElementById('quiz-result').classList.remove('hidden');
+  document.getElementById('hdr-points').textContent = state.zenPoints;
+  document.getElementById('hdr-streak').textContent = state.streak;
+}
+
+/* =================== ACTIVITIES =================== */
+let activeTier = null;
+function renderActivities(){
+  const latest = state.history[0];
+  const t = activeTier ?? (latest? latest.tier : 1);
+  activeTier = t;
+  document.getElementById('act-tier-badge').innerHTML = tierBadge(t);
+  document.getElementById('act-tabs').innerHTML = [1,2,3,4,5].map(i=>`
+    <button onclick="activeTier=${i};renderActivities()" class="shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${i===t?'bg-leaf text-cream':'bg-white border border-mist hover:bg-zen/40'}">Tier ${i}</button>
+  `).join('');
+  document.getElementById('act-grid').innerHTML = ACTIVITIES[t].map(a=>{
+    const done = state.completed.includes(a.id);
+    return `<div class="flex flex-col rounded-2xl border border-mist/70 bg-white p-6 shadow-soft">
+      <div class="flex items-center justify-between text-xs text-ink/60">
+        <span>${a.duration} min</span><span class="font-semibold text-leafdark">+${a.points} ✦</span>
+      </div>
+      <div class="mt-2 text-3xl">${a.emoji}</div>
+      <h3 class="mt-1 font-display text-lg">${a.title}</h3>
+      <p class="mt-1 flex-1 text-sm text-ink/70">${a.description}</p>
+      <button onclick="completeAct('${a.id}',${a.points},'${a.title.replace(/'/g,"\\'")}')" ${done?'disabled':''}
+        class="mt-4 rounded-full px-4 py-1.5 text-sm font-semibold transition ${done?'bg-zen text-leafdark':'bg-leaf text-cream hover:bg-leafdark'}">
+        ${done?'✓ Completed':'Mark complete'}
+      </button>
+    </div>`;
+  }).join('');
+}
+function completeAct(id, pts, name){
+  if(state.completed.includes(id)) return;
+  state.completed.push(id); state.zenPoints += pts; save();
+  document.getElementById('hdr-points').textContent = state.zenPoints;
+  toast(`+${pts} ZenPoints · ${name}`);
+  renderActivities();
+}
+
+/* =================== REWARDS =================== */
+function renderRewards(){
+  document.getElementById('rw-points').textContent = state.zenPoints;
+  document.getElementById('rw-grid').innerHTML = REWARDS.map(r=>{
+    const owned = state.redeemed.includes(r.id);
+    const ok = state.zenPoints >= r.cost;
+    return `<div class="flex flex-col rounded-2xl border border-mist/70 bg-white p-6 shadow-soft">
+      <div class="text-3xl">${r.emoji}</div>
+      <h3 class="mt-2 font-display text-lg">${r.name}</h3>
+      <p class="mt-1 flex-1 text-sm text-ink/70">${r.description}</p>
+      <div class="mt-4 flex items-center justify-between">
+        <span class="text-sm font-semibold text-leafdark">✦ ${r.cost}</span>
+        <button ${owned||!ok?'disabled':''} onclick="redeem('${r.id}',${r.cost},'${r.name.replace(/'/g,"\\'")}')"
+          class="rounded-full px-4 py-1.5 text-sm font-semibold transition ${owned?'bg-zen text-leafdark':ok?'bg-leaf text-cream hover:bg-leafdark':'bg-mist text-ink/50'}">
+          ${owned?'✓ Owned':ok?'Redeem':'Locked'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function redeem(id, cost, name){
+  if(state.zenPoints < cost || state.redeemed.includes(id)){ toast('Not enough ZenPoints'); return; }
+  state.zenPoints -= cost; state.redeemed.push(id); save();
+  document.getElementById('hdr-points').textContent = state.zenPoints;
+  toast(`🎉 Redeemed: ${name}`); renderRewards();
+}
+
+/* =================== INSIGHTS =================== */
+function renderInsights(){
+  document.getElementById('ins-points').textContent = state.zenPoints;
+  document.getElementById('ins-acts').textContent = state.completed.length;
+  document.getElementById('ins-streak').textContent = state.streak;
+  const sorted = [...state.history].reverse();
+  const avg = state.history.length? Math.round(state.history.reduce((s,r)=>s+r.percent,0)/state.history.length) : 0;
+  document.getElementById('ins-avg').textContent = avg+'%';
+
+  const W=600, H=180;
+  if(sorted.length===0){
+    document.getElementById('trend-wrap').innerHTML = `<div class="grid h-48 place-items-center text-sm text-ink/60">Take an assessment to see your trend.</div>`;
+  } else {
+    const stepX = sorted.length>1 ? W/(sorted.length-1) : 0;
+    const pts = sorted.map((r,i)=>`${i*stepX},${H-(r.percent/100)*H}`).join(' ');
+    const dots = sorted.map((r,i)=>`
+      <circle cx="${i*stepX}" cy="${H-(r.percent/100)*H}" r="5" fill="#3F7A5A"/>
+      <text x="${i*stepX}" y="${H+18}" text-anchor="middle" font-size="10" fill="#5A8F6E">${fmtDate(r.date).slice(0,5)}</text>`).join('');
+    document.getElementById('trend-wrap').innerHTML = `
+      <svg viewBox="0 0 ${W} ${H+30}" class="w-full">
+        <defs><linearGradient id="lineG" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#3F7A5A" stop-opacity=".4"/><stop offset="100%" stop-color="#3F7A5A" stop-opacity="0"/>
+        </linearGradient></defs>
+        ${[20,40,60,80].map(y=>`<line x1="0" x2="${W}" y1="${H-(y/100)*H}" y2="${H-(y/100)*H}" stroke="#D6E2DA" stroke-dasharray="3 4"/>`).join('')}
+        ${sorted.length>1? `<polygon points="0,${H} ${pts} ${W},${H}" fill="url(#lineG)"/><polyline points="${pts}" fill="none" stroke="#3F7A5A" stroke-width="2.5" stroke-linejoin="round"/>` : ''}
+        ${dots}
+      </svg>`;
+  }
+  document.getElementById('ins-tbody').innerHTML = state.history.length===0
+    ? `<tr><td colspan="3" class="px-5 py-8 text-center text-ink/60">No check-ins yet.</td></tr>`
+    : state.history.map(r=>`<tr class="border-t border-mist/60">
+        <td class="px-5 py-3">${fmtDate(r.date)}</td>
+        <td class="px-5 py-3 font-semibold">${r.percent}%</td>
+        <td class="px-5 py-3">${tierBadge(r.tier)}</td>
+      </tr>`).join('');
+}
+
+function renderAll(){ renderDashboard(); }
+renderAll();
+go('dashboard');
+</script>
+</body>
+</html>
